@@ -1,0 +1,25 @@
+[0.009s] Invoking command in '/home/arlec/Agibot_D1_Max/ros2ws/build/d1maxrobot': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /home/arlec/Agibot_D1_Max/ros2ws/src/d1maxrobot -DCMAKE_INSTALL_PREFIX=/home/arlec/Agibot_D1_Max/ros2ws/install/d1maxrobot
+[0.061s] -- The C compiler identification is GNU 12.3.0
+[0.096s] -- The CXX compiler identification is GNU 11.4.0
+[0.102s] -- Detecting C compiler ABI info
+[0.167s] -- Detecting C compiler ABI info - done
+[0.173s] -- Check for working C compiler: /usr/bin/cc - skipped
+[0.173s] -- Detecting C compile features
+[0.174s] -- Detecting C compile features - done
+[0.176s] -- Detecting CXX compiler ABI info
+[0.248s] -- Detecting CXX compiler ABI info - done
+[0.250s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[0.250s] -- Detecting CXX compile features
+[0.250s] -- Detecting CXX compile features - done
+[0.252s] -- Found ament_cmake: 1.3.14 (/opt/ros/humble/share/ament_cmake/cmake)
+[0.345s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[0.388s] [31mCMake Error at CMakeLists.txt:14 (install):
+[0.388s]   install does not recognize sub-command DESTINATION
+[0.388s] 
+[0.388s] [0m
+[0.388s] -- Found ament_lint_auto: 0.12.15 (/opt/ros/humble/share/ament_lint_auto/cmake)
+[0.433s] -- Added test 'lint_cmake' to check CMake code style
+[0.433s] -- Added test 'xmllint' to check XML markup files
+[0.434s] -- Configuring incomplete, errors occurred!
+[0.434s] See also "/home/arlec/Agibot_D1_Max/ros2ws/build/d1maxrobot/CMakeFiles/CMakeOutput.log".
+[0.437s] Invoked command in '/home/arlec/Agibot_D1_Max/ros2ws/build/d1maxrobot' returned '1': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /home/arlec/Agibot_D1_Max/ros2ws/src/d1maxrobot -DCMAKE_INSTALL_PREFIX=/home/arlec/Agibot_D1_Max/ros2ws/install/d1maxrobot

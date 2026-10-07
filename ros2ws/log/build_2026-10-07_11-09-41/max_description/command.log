@@ -1,0 +1,1 @@
+Invoking command in '/home/arlec/Agibot_D1_Max/ros2ws/build/max_description': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/humble /usr/bin/cmake /home/arlec/Agibot_D1_Max/ros2ws/src/max_description -DCMAKE_INSTALL_PREFIX=/home/arlec/Agibot_D1_Max/ros2ws/install/max_description

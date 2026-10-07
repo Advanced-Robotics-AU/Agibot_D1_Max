@@ -1,0 +1,4 @@
+source;share/d1maxrobot/local_setup.bash
+source;share/d1maxrobot/local_setup.dsv
+source;share/d1maxrobot/local_setup.sh
+source;share/d1maxrobot/local_setup.zsh
