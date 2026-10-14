@@ -67,6 +67,26 @@ make -j6
 ./data ${ip} 8082
 ```
 
+### Browser Control Interface
+
+The `example/` directory also includes a local web interface for sending SDK
+commands from a browser. Build and start it with:
+
+```bash
+cd "ubuntu22.04(x86_64_arm64)/RobotSDK-0.1.1/example"
+cmake -S . -B build
+cmake --build build --target web_control -j6
+./build/web_control
+```
+
+Open <http://127.0.0.1:8766> for robot controls or
+<http://127.0.0.1:8767> for the sensor dashboard. Both pages are served
+concurrently; connect to the robot from the control page (UDP port `8082` by
+default) and use **Take control** before operating it. Direction controls send
+movement while held and stop when released. The web servers bind to localhost
+only; run them on the computer that is connected to the robot. Press `Ctrl+C`
+to stop both servers.
+
 ## 📚 Documentation
 
 For more in-depth information, please refer to the official documentation:
