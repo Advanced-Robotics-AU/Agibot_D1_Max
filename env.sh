@@ -1,5 +1,5 @@
 export RMW_IMPLEMENTATION=rmw_zenoh_cpp
-export ROBOT_IP=10.220.1.2
+export ROBOT_IP=${ROBOT_IP:-10.220.1.3}
 
 # 1. Match the robot's Domain ID (default is 0)
 

@@ -29,6 +29,7 @@ link_directories(${SDK_ROOT}/lib/${CMAKE_SYSTEM_PROCESSOR})
 # -------------------------------
 add_executable(data data.cpp)
 add_executable(control control.cpp)
+add_executable(web_control web_control.cpp)
 add_executable(async async.cpp)
 add_executable(sync sync.cpp)
 add_executable(manual_reconnect manual_reconnect.cpp)
@@ -41,6 +42,7 @@ add_executable(camera_bitrate camera_bitrate.cpp)
 # -------------------------------
 target_link_libraries(data PRIVATE robot_sdk)
 target_link_libraries(control PRIVATE robot_sdk)
+target_link_libraries(web_control PRIVATE robot_sdk Threads::Threads)
 target_link_libraries(async PRIVATE robot_sdk Threads::Threads)
 target_link_libraries(sync PRIVATE robot_sdk)
 target_link_libraries(manual_reconnect PRIVATE robot_sdk Threads::Threads)
@@ -55,6 +57,9 @@ set_target_properties(data PROPERTIES
     BUILD_RPATH "${SDK_ROOT}/lib/${ARCH_DIR}"
 )
 set_target_properties(control PROPERTIES
+    BUILD_RPATH "${SDK_ROOT}/lib/${ARCH_DIR}"
+)
+set_target_properties(web_control PROPERTIES
     BUILD_RPATH "${SDK_ROOT}/lib/${ARCH_DIR}"
 )
 set_target_properties(async PROPERTIES
@@ -74,4 +79,9 @@ set_target_properties(take_control PROPERTIES
 )
 set_target_properties(camera_bitrate PROPERTIES
     BUILD_RPATH "${SDK_ROOT}/lib/${ARCH_DIR}"
+)
+
+target_compile_definitions(web_control PRIVATE
+    WEB_CONTROL_HTML_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/control.html\"
+    WEB_DASHBOARD_HTML_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/index.html\"
 )

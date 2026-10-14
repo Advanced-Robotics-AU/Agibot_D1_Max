@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Robot Dashboard</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b111b;color:#edf3fc;font:14px system-ui}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:16px}
+h1{font-size:21px;margin:0 auto 0 0}
+input,select,button{background:#1a2638;color:inherit;border:1px solid #3a4b63;
+padding:9px;border-radius:7px;font:inherit}
+button{cursor:pointer}button:disabled{opacity:.45}
+#connect{background:#79e4b6;color:#10291e}
+#status{padding:0 16px 12px;color:#a9bdd5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 16px 16px}
+article{min-width:0;background:#101b2b;border:1px solid #293b53;border-radius:12px;overflow:hidden}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px}
+.bar strong{margin-right:auto}.bar select{max-width:100%;width:230px}
+canvas{display:block;width:100%;height:34vh;min-height:220px;background:#080f19}
+.note{padding:9px 12px;color:#a9bdd5;font-size:12px;min-height:34px}
+footer{padding:0 16px 16px;color:#8ea5be;font-size:12px}
+@media(max-width:800px){.grid{grid-template-columns:1fr}canvas{height:300px}}
+</style>
+</head>
+<body>
+<header>
+<h1>Robot / Sensor Dashboard</h1>
+<input id="endpoint" aria-label="Robot endpoint" value="ws://localhost:8765">
+<button id="connect">Connect</button>
+<button id="disconnect" disabled>Disconnect</button>
+<button id="fullscreen">Fullscreen</button>
+<label>LiDAR radius <select id="radius">
+<option>5</option><option selected>20</option><option>50</option><option>100</option>
+</select> m</label>
+</header>
+<div id="status" role="status">Start your robot bridge, then connect.</div>
+<div class="grid" id="panels"></div>
+<footer>
+LiDAR: top-down view, +X forward/up and +Y left, in each sensor’s own frame.
+No transform alignment. JPEG/PNG and RGB/BGR/mono8 cameras supported.
+</footer>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const text=new TextDecoder();
+const channels=new Map(), subscriptions=new Map();
+let socket, nextId=1;
+const panels=[];
+ 
+for(let i=0;i<4;i++){
+  const lidar=i<2;
+  const article=document.createElement("article");
+  article.innerHTML=`
+<div class="bar"><strong>${lidar?"LiDAR "+(i+1):"Camera "+(i-1)}</strong>
+<select aria-label="Select sensor topic"><option value="">Select topic</option></select></div>
+<canvas width="900" height="500"></canvas>
+<div class="note">Waiting for connection</div>`;
+  $("panels").append(article);
+  const p={lidar,select:article.querySelector("select"),
+    canvas:article.querySelector("canvas"),note:article.querySelector(".note"),
+    latest:null,version:0,last:0,busy:false};
+  p.select.onchange=()=>subscribe(p);
+  panels.push(p);
+}
+function status(s){$("status").textContent=s;}
+function blank(p,message){
+  const c=p.canvas.getContext("2d");
+  c.fillStyle="#080f19";c.fillRect(0,0,p.canvas.width,p.canvas.height);
+  c.fillStyle="#91a7c1";c.font="20px system-ui";
+  c.fillText(message,24,48);
+}
+function clear(){
+  channels.clear();subscriptions.clear();
+  for(const p of panels){
+    p.version++;p.latest=null;p.last=0;p.sub=undefined;
+    p.select.replaceChildren(new Option("Select topic",""));
+    p.note.textContent="Waiting for connection";blank(p,"No live data");
+  }
+}
+function disconnect(){
+  const old=socket;socket=undefined;old?.close();
+  clear();$("connect").disabled=false;$("disconnect").disabled=true;
+}
+$("disconnect").onclick=()=>{disconnect();status("Disconnected.");};
+$("connect").onclick=()=>{
+  let url;
+  try{
+    url=new URL($("endpoint").value.trim());
+    if(!["ws:","wss:"].includes(url.protocol))throw Error("Use ws:// or wss://.");
+  }catch(e){status(e.message);return;}
+  disconnect();status("Connecting…");
+  try{
+    const ws = new WebSocket(url.href, [
+  "foxglove.sdk.v1",
+  "foxglove.websocket.v1"
+]);
+    socket=ws;ws.binaryType="arraybuffer";
+    $("connect").disabled=true;$("disconnect").disabled=false;
+    ws.onopen=()=>{if(socket===ws)status("Connected — discovering sensor topics…");};
+    ws.onerror=()=>{if(socket===ws)status("Connection failed. Check robot network, bridge, and browser permissions.");};
+    ws.onclose=e=>{
+      if(socket!==ws)return;
+      disconnect();status(`Disconnected (code ${e.code}). ${e.reason||"Check robot connectivity."}`);
+    };
+    ws.onmessage=e=>{
+      if(socket!==ws)return;
+      try{
+        if(typeof e.data==="string"){
+          const m=JSON.parse(e.data);
+          if(m.op==="advertise"){
+            for(const ch of m.channels)channels.set(ch.id,ch);
+            refresh();
+          }else if(m.op==="unadvertise"){
+            for(const id of m.channelIds)channels.delete(id);
+            refresh();
+          }else if(m.op==="status"&&m.level>0)status(m.message);
+        }else{
+          const bytes=new Uint8Array(e.data);
+          if(bytes.length<13||bytes[0]!==1)return;
+          const id=new DataView(e.data).getUint32(1,true);
+          const p=subscriptions.get(id);
+          if(p)p.latest=bytes.subarray(13);
+        }
+      }catch(e){status("Stream error: "+e.message);}
+    };
+  }catch(e){disconnect();status(e.message);}
+};
+function kind(ch){
+  return (ch.schemaName||"").split("/").pop();
+}
+function supported(ch,p){
+  const types=p.lidar?["LaserScan","PointCloud2"]:["Image","CompressedImage"];
+  return types.includes(kind(ch))&&["cdr","ros1","json"].includes(ch.encoding);
+}
+function refresh(){
+  for(const p of panels){
+    const selected=p.select.value;
+    p.select.replaceChildren(new Option("Select topic",""));
+    for(const ch of channels.values()){
+      if(supported(ch,p))p.select.add(new Option(ch.topic+" · "+kind(ch),String(ch.id)));
+    }
+    if([...p.select.options].some(o=>o.value===selected))p.select.value=selected;
+    if(selected&&!p.select.value)subscribe(p);
+    if(!p.select.value)p.note.textContent="Select a topic";
+  }
+  const sensors=[...channels.values()].filter(ch=>panels.some(p=>supported(ch,p)));
+  status(`Connected · ${channels.size} topics · ${sensors.length} supported sensor topics`);
+  const description=[...channels.values()]
+    .map(ch=>`${ch.topic}: ${ch.schemaName} (${ch.encoding})`).join("\n");
+  $("status").title=description;
+}
+function subscribe(p){
+  if(p.sub!==undefined){
+    if(socket?.readyState===1)socket.send(JSON.stringify({op:"unsubscribe",subscriptionIds:[p.sub]}));
+    subscriptions.delete(p.sub);
+  }
+  p.sub=undefined;p.version++;p.latest=null;p.last=0;
+  blank(p,"Waiting for data");
+  const ch=channels.get(Number(p.select.value));
+  if(!p.select.value||!ch||socket?.readyState!==1)return;
+  p.ch=ch;p.sub=nextId++;subscriptions.set(p.sub,p);
+  socket.send(JSON.stringify({op:"subscribe",subscriptions:[{id:p.sub,channelId:ch.id}]}));
+  p.note.textContent="Subscribed · waiting for data";
+}
+ 
+// Read standard ROS 1 serialization or ROS 2 CDR serialization.
+class Reader{
+  constructor(b,cdr){
+    this.b=b;this.v=new DataView(b.buffer,b.byteOffset,b.byteLength);
+    this.cdr=cdr;this.pos=cdr?4:0;this.le=true;
+    if(cdr){
+      if(b.length<4)throw Error("Invalid CDR header");
+      const representation=(b[0]<<8)|b[1];
+      if(representation!==0&&representation!==1)throw Error("Unsupported CDR representation");
+      this.le=representation===1;
+    }
+  }
+  align(n){
+    if(this.cdr)this.pos+=((n-(this.pos-4)%n)%n);
+  }
+  number(method,size){
+    this.align(size);
+    if(this.pos+size>this.b.length)throw Error("Truncated message");
+    const value=this.v[method](this.pos,this.le);this.pos+=size;return value;
+  }
+  u8(){return this.number("getUint8",1);}
+  u32(){return this.number("getUint32",4);}
+  f32(){return this.number("getFloat32",4);}
+  take(n){
+    if(n<0||this.pos+n>this.b.length)throw Error("Truncated message");
+    const value=this.b.subarray(this.pos,this.pos+n);this.pos+=n;return value;
+  }
+  str(){const n=this.u32();const b=this.take(n);return text.decode(this.cdr&&n?b.subarray(0,n-1):b);}
+  header(){
+    if(!this.cdr)this.u32();
+    this.u32();this.u32();return {frame_id:this.str()};
+  }
+  data(){return this.take(this.u32());}
+  floats(){
+    const n=this.u32();
+    if(n>this.b.length/4)throw Error("Invalid array length");
+    const a=new Float32Array(n);for(let i=0;i<n;i++)a[i]=this.f32();return a;
+  }
+}
+function decode(ch,b){
+  if(ch.encoding==="json")return JSON.parse(text.decode(b));
+  const r=new Reader(b,ch.encoding==="cdr");
+  const m={header:r.header()};
+  switch(kind(ch)){
+    case "LaserScan":
+      for(const key of ["angle_min","angle_max","angle_increment","time_increment",
+        "scan_time","range_min","range_max"])m[key]=r.f32();
+      m.ranges=r.floats();m.intensities=r.floats();break;
+    case "PointCloud2":{
+      m.height=r.u32();m.width=r.u32();m.fields=[];
+      const count=r.u32();
+      if(count>1024)throw Error("Invalid point fields");
+      for(let i=0;i<count;i++)m.fields.push({
+        name:r.str(),offset:r.u32(),datatype:r.u8(),count:r.u32()});
+      m.is_bigendian=!!r.u8();m.point_step=r.u32();m.row_step=r.u32();
+      m.data=r.data();m.is_dense=!!r.u8();break;
+    }
+    case "CompressedImage":
+      m.format=r.str();m.data=r.data();break;
+    case "Image":
+      m.height=r.u32();m.width=r.u32();m.encoding=r.str();
+      m.is_bigendian=!!r.u8();m.step=r.u32();m.data=r.data();break;
+    default:throw Error("Unsupported message");
+  }
+  return m;
+}
+function bytes(data){
+  if(data instanceof Uint8Array)return data;
+  if(typeof data==="string")return Uint8Array.from(atob(data),x=>x.charCodeAt(0));
+  return Uint8Array.from(data);
+}
+function lidar(p,m){
+  const canvas=p.canvas,c=canvas.getContext("2d"),w=canvas.width,h=canvas.height;
+  const radius=Number($("radius").value),scale=Math.min(w,h)/2/radius;
+  c.fillStyle="#080f19";c.fillRect(0,0,w,h);
+  c.strokeStyle="#21334a";c.lineWidth=1;
+  for(let i=1;i<=4;i++){
+    c.beginPath();c.arc(w/2,h/2,i*radius/4*scale,0,Math.PI*2);c.stroke();
+  }
+  c.beginPath();c.moveTo(0,h/2);c.lineTo(w,h/2);
+  c.moveTo(w/2,0);c.lineTo(w/2,h);c.stroke();
+  let count=0;
+  c.fillStyle=panels.indexOf(p)===0?"#79e4b6":"#71b9ff";
+  const point=(x,y)=>{
+    if(!Number.isFinite(x)||!Number.isFinite(y))return;
+    const px=w/2-y*scale,py=h/2-x*scale;
+    if(px<0||px>=w||py<0||py>=h)return;
+    c.fillRect(px,py,2,2);count++;
+  };
+  if(m.ranges){
+    for(let i=0;i<m.ranges.length;i++){
+      const range=m.ranges[i],angle=m.angle_min+i*m.angle_increment;
+      if(range>=m.range_min&&range<=m.range_max)
+        point(range*Math.cos(angle),range*Math.sin(angle));
+    }
+  }else{
+    const data=bytes(m.data),view=new DataView(data.buffer,data.byteOffset,data.byteLength);
+    const x=m.fields.find(f=>f.name==="x"),y=m.fields.find(f=>f.name==="y");
+    if(!x||!y||m.point_step<=0)throw Error("Point cloud needs x/y fields");
+    const total=m.width*m.height;
+    if(total>100000000)throw Error("Invalid cloud dimensions");
+    const stride=Math.max(1,Math.ceil(total/80000));
+    const methods={1:["getInt8",1],2:["getUint8",1],3:["getInt16",2],
+      4:["getUint16",2],5:["getInt32",4],6:["getUint32",4],
+      7:["getFloat32",4],8:["getFloat64",8]};
+    const read=(base,f)=>{
+      const entry=methods[f.datatype];
+      if(!entry||f.offset+entry[1]>m.point_step)throw Error("Invalid point field");
+      return view[entry[0]](base+f.offset,!m.is_bigendian);
+    };
+    for(let i=0;i<total;i+=stride){
+      const base=Math.floor(i/m.width)*m.row_step+(i%m.width)*m.point_step;
+      if(base+m.point_step>data.length)break;
+      point(read(base,x),read(base,y));
+    }
+  }
+  c.fillStyle="#fff";c.beginPath();
+  c.moveTo(w/2,h/2-9);c.lineTo(w/2-6,h/2+6);
+  c.lineTo(w/2+6,h/2+6);c.closePath();c.fill();
+  return `${count.toLocaleString()} visible points`;
+}
+async function camera(p,m,version){
+  const canvas=p.canvas,c=canvas.getContext("2d");
+  const data=bytes(m.data);let image;
+  if(m.format!==undefined){
+    const jpeg=data[0]===255&&data[1]===216;
+    const png=data[0]===137&&data[1]===80&&data[2]===78&&data[3]===71;
+    if(!jpeg&&!png)throw Error("Only JPEG/PNG compressed images are supported");
+    image=await createImageBitmap(new Blob([data],{type:jpeg?"image/jpeg":"image/png"}));
+    if(version!==p.version){image.close();return "";}
+  }else{
+    const formats={rgb8:3,bgr8:3,rgba8:4,bgra8:4,mono8:1,"8UC1":1};
+    const n=formats[m.encoding],w=m.width,h=m.height;
+    if(!n)throw Error("Unsupported image encoding: "+m.encoding);
+    if(!w||!h||w*h>16777216||m.step<w*n||data.length<m.step*h)
+      throw Error("Invalid or oversized image");
+    image=new ImageData(w,h);
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const src=y*m.step+x*n,dst=(y*w+x)*4;
+      const bgr=m.encoding.startsWith("bgr");
+      image.data[dst]=data[src+(bgr?2:0)];
+      image.data[dst+1]=data[src+(n===1?0:1)];
+      image.data[dst+2]=data[src+(n===1?0:bgr?0:2)];
+      image.data[dst+3]=n===4?data[src+3]:255;
+    }
+  }
+  canvas.width=image.width;canvas.height=image.height;
+  if(image instanceof ImageData)c.putImageData(image,0,0);
+  else{c.drawImage(image,0,0);image.close();}
+  return `${canvas.width} × ${canvas.height}`;
+}
+setInterval(()=>{
+  for(const p of panels){
+    if(p.busy||!p.latest)continue;
+    const payload=p.latest;p.latest=null;p.busy=true;
+    const version=p.version;
+    Promise.resolve().then(async()=>{
+      const message=decode(p.ch,payload);
+      const detail=p.lidar?lidar(p,message):await camera(p,message,version);
+      if(version!==p.version)return;
+      p.last=Date.now();
+      p.note.textContent=`Live · ${detail} · ${message.header?.frame_id||"unknown frame"}`;
+    }).catch(e=>{
+      if(version===p.version)p.note.textContent="Display error: "+e.message;
+    }).finally(()=>p.busy=false);
+  }
+},66);
+setInterval(()=>{
+  for(const p of panels)if(p.last&&Date.now()-p.last>3000)
+    p.note.textContent=`Stale · last frame ${Math.floor((Date.now()-p.last)/1000)} seconds ago`;
+},1000);
+$("fullscreen").onclick=async()=>{
+  try{await document.documentElement.requestFullscreen();}
+  catch(e){status("Fullscreen unavailable: "+e.message);}
+};
+clear();
+</script>
+</body>
+</html>

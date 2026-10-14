@@ -43,6 +43,14 @@ if(NOT DEFINED CMAKE_OBJDUMP)
 endif()
 
 if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/d1maxrobot" TYPE DIRECTORY FILES
+    "/home/arlec/Agibot_D1_Max/ros2ws/src/d1maxrobot/launch"
+    "/home/arlec/Agibot_D1_Max/ros2ws/src/d1maxrobot/config"
+    "/home/arlec/Agibot_D1_Max/ros2ws/src/d1maxrobot/rviz"
+    )
+endif()
+
+if("x${CMAKE_INSTALL_COMPONENT}x" STREQUAL "xUnspecifiedx" OR NOT CMAKE_INSTALL_COMPONENT)
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/ament_index/resource_index/package_run_dependencies" TYPE FILE FILES "/home/arlec/Agibot_D1_Max/ros2ws/build/d1maxrobot/ament_cmake_index/share/ament_index/resource_index/package_run_dependencies/d1maxrobot")
 endif()
 
