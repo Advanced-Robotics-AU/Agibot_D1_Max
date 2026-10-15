@@ -1,0 +1,15 @@
+slam_toolbox:
+  ros__parameters:
+    mode: mapping
+    # map_file_name: /home/arlec/
+    map_start_pose: [0.0, 0.0, 0.0]
+
+    odom_topic: /odom/current_pose
+    scan_topic: /front_lidar
+    
+    
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    odom_topic:
+    use_map_saver: true
