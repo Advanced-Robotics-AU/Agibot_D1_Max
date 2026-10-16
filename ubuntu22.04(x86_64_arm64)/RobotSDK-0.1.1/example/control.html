@@ -60,6 +60,15 @@
       border-bottom: 1px solid #ffffff10;
     }
     .brand { display: flex; align-items: center; gap: 13px; }
+    .brand-logos { display: flex; align-items: center; gap: 9px; }
+    .brand-logos img { display: block; width: auto; object-fit: contain; }
+    .brand-logo-bunnings { height: 38px; }
+    .brand-logo-robotics {
+      height: 42px;
+      max-width: 126px;
+      padding: 5px 8px;
+      background: #ffffff;
+    }
     .brand-mark {
       width: 40px; height: 40px; display: grid; place-items: center;
       border-radius: 12px; color: var(--lime); background: #c4f36b17;
@@ -155,15 +164,145 @@
       .dpad { width: min(78vw, 270px); }
       .card { padding: 17px; }
       footer { flex-direction: column; }
+      .brand-logos { gap: 6px; }
+      .brand-logo-bunnings { height: 32px; }
+      .brand-logo-robotics { height: 36px; max-width: 108px; padding: 4px 6px; }
     }
+
+    :root {
+      color-scheme: light;
+      --bg: #edf0ef;
+      --panel: #ffffff;
+      --panel-raised: #f7f9f8;
+      --line: #c9cfcd;
+      --muted: #6f7573;
+      --text: #2f3634;
+      --lime: #08736b;
+      --lime-ink: #ffffff;
+      --red: #f70506;
+      --green: #2ca744;
+    }
+    body {
+      background: var(--bg);
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+    .topbar {
+      color: #ffffff;
+      background: #0d4245;
+      border-bottom: 0;
+    }
+    .brand-mark {
+      color: #ffffff;
+      background: #08736b;
+      border-color: #5aa39c;
+      border-radius: 0;
+    }
+    .brand-caption { color: #a8cfcb; }
+    .connection-pill {
+      color: #e1eeec;
+      background: #0d4245;
+      border-color: #65918e;
+      border-radius: 0;
+    }
+    .dot { background: #f5a206; }
+    .connection-pill.connected {
+      color: #ffffff;
+      background: #08736b;
+      border-color: #87c6bf;
+    }
+    .connection-pill.connected .dot {
+      background: #82d59a;
+      box-shadow: 0 0 0 3px #82d59a33;
+    }
+    main { max-width: 1500px; }
+    h1, h2 { color: #005a55; }
+    .subtitle { color: #6f7573; }
+    .server-state { color: #005a55; }
+    .card {
+      border-color: #c9cfcd;
+      border-top: 4px solid #005a55;
+      border-radius: 0;
+      background: #ffffff;
+      box-shadow: 0 2px 7px #172d2810;
+    }
+    .eyebrow { color: #08736b; }
+    button {
+      color: #005a55;
+      background: #ffffff;
+      border-color: #aebbb8;
+      border-radius: 0;
+      font-weight: 650;
+    }
+    button:hover:not(:disabled) {
+      color: #0d4245;
+      background: #eaf4f2;
+      border-color: #08736b;
+    }
+    button:focus-visible, input:focus-visible {
+      outline-color: #08736b;
+    }
+    .primary {
+      color: #ffffff;
+      background: #005a55;
+      border-color: #005a55;
+    }
+    .primary:hover:not(:disabled) {
+      color: #ffffff;
+      background: #08736b;
+      border-color: #08736b;
+    }
+    input {
+      color: #2f3634;
+      background: #fbfcfc;
+      border-color: #c9cfcd;
+      border-radius: 0;
+    }
+    .dpad .center {
+      color: #ffffff;
+      background: #005a55;
+      border-color: #005a55;
+    }
+    .dpad .center:hover:not(:disabled) {
+      color: #ffffff;
+      background: #08736b;
+    }
+    .turn-row button { color: #005a55; }
+    .button-row .selected {
+      color: #005a55;
+      background: #dcefed;
+      border-color: #08736b;
+    }
+    .emergency {
+      color: #a10b0b;
+      background: #fff0f0;
+      border-color: #e0a5a5;
+    }
+    .emergency:hover:not(:disabled) {
+      color: #8a1111;
+      background: #ffe1e1;
+      border-color: #f70506;
+    }
+    .message.error { color: #a10b0b; }
+    .message.success { color: #1f6c35; }
+    .safety-note {
+      color: #46514e;
+      background: #e4f1ef;
+      border-color: #bdd7d3;
+      border-radius: 0;
+    }
+    .safety-note strong { color: #005a55; }
+    footer { color: #6f7573; }
   </style>
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="brand-mark" aria-hidden="true">✳</div>
+      <div class="brand-logos" aria-label="Bunnings and Advanced Robotics">
+        <img class="brand-logo-bunnings" src="Bunnings_Warehouse.png" alt="Bunnings Warehouse">
+        <img class="brand-logo-robotics" src="AR_Logo_NoTagline.png" alt="Advanced Robotics">
+      </div>
       <div>
-        <div class="brand-name">AGIBOT D1</div>
+        <div class="brand-name">D1</div>
         <div class="brand-caption">Robot command deck</div>
       </div>
     </div>
@@ -243,6 +382,7 @@
               </div>
             </div>
           </div>
+          <p class="card-note" style="margin-top: 10px">Movement keys: W (up), A (left), S (down), D (right), Q (turn left), E (turn right).</p>
         </article>
 
         <article class="card">

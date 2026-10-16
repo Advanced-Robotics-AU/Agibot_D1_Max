@@ -84,4 +84,5 @@ set_target_properties(camera_bitrate PROPERTIES
 target_compile_definitions(web_control PRIVATE
     WEB_CONTROL_HTML_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/control.html\"
     WEB_DASHBOARD_HTML_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/index.html\"
+    WEB_EXAMPLE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"
 )

@@ -32,6 +32,10 @@
 #define WEB_DASHBOARD_HTML_PATH "index.html"
 #endif
 
+#ifndef WEB_EXAMPLE_DIR
+#define WEB_EXAMPLE_DIR "."
+#endif
+
 namespace {
 
 constexpr std::size_t kMaxHeaderSize = 8192;
@@ -351,6 +355,16 @@ std::string ReadDashboardPage() {
   return content.str();
 }
 
+std::string ReadImage(const std::string& path) {
+  std::ifstream image(path, std::ios::binary);
+  if (!image) {
+    throw std::runtime_error(std::string("Could not open image: ") + path);
+  }
+  std::ostringstream content;
+  content << image.rdbuf();
+  return content.str();
+}
+
 int WaitForClient(int server_socket) {
   pollfd descriptor{server_socket, POLLIN, 0};
   const int ready = poll(&descriptor, 1, 500);
@@ -421,7 +435,7 @@ void RunDashboardServer(int server_socket, int port,
 std::string HandleRequest(const HttpRequest& request,
                           robot_sdk::SDKClient& client,
                           std::string& content_type) {
-  const std::string path = RequestPath(request.target);
+  const std::string path = DecodeQueryComponent(RequestPath(request.target));
   if (request.host != g_expected_host) {
     throw HttpError(403, "Requests must use the local control page");
   }
@@ -429,6 +443,14 @@ std::string HandleRequest(const HttpRequest& request,
       (path == "/" || path == "/control.html")) {
     content_type = "text/html; charset=utf-8";
     return ReadControlPage();
+  }
+  if (request.method == "GET" && path == "/Bunnings_Warehouse.png") {
+    content_type = "image/png";
+    return ReadImage(std::string(WEB_EXAMPLE_DIR) + "/Bunnings_Warehouse.png");
+  }
+  if (request.method == "GET" && path == "/AR_Logo_NoTagline.png") {
+    content_type = "image/png";
+    return ReadImage(std::string(WEB_EXAMPLE_DIR) + "/AR_Logo_NoTagline.png");
   }
 
   content_type = "application/json; charset=utf-8";
@@ -565,28 +587,38 @@ int StartServer(int port) {
   return server_socket;
 }
 
+int ParsePort(const char* value) {
+  const std::string port_text(value);
+  std::size_t parsed_length = 0;
+  const long port = std::stol(port_text, &parsed_length);
+  if (parsed_length != port_text.size() || port < 1 || port > 65535) {
+    throw std::invalid_argument("port out of range");
+  }
+  return static_cast<int>(port);
+}
+
 }  // namespace
 
 int main(int argc, char* argv[]) {
   int http_port = kDefaultHttpPort;
-  if (argc > 2) {
-    std::cerr << "Usage: " << argv[0] << " [http-port]" << std::endl;
+  int dashboard_port = kDefaultDashboardPort;
+  if (argc > 3) {
+    std::cerr << "Usage: " << argv[0]
+              << " [control-http-port [dashboard-http-port]]" << std::endl;
     return EXIT_FAILURE;
   }
-  if (argc == 2) {
-    try {
-      std::size_t parsed_length = 0;
-      const long parsed_port = std::stol(argv[1], &parsed_length);
-      if (parsed_length != std::string(argv[1]).size() || parsed_port < 1 ||
-          parsed_port > 65535) {
-        throw std::invalid_argument("port out of range");
-      }
-      http_port = static_cast<int>(parsed_port);
-    } catch (const std::exception&) {
-      std::cerr << "HTTP port must be a number between 1 and 65535"
-                << std::endl;
-      return EXIT_FAILURE;
-    }
+  try {
+    if (argc >= 2) http_port = ParsePort(argv[1]);
+    if (argc == 3) dashboard_port = ParsePort(argv[2]);
+  } catch (const std::exception&) {
+    std::cerr << "HTTP ports must be numbers between 1 and 65535"
+              << std::endl;
+    return EXIT_FAILURE;
+  }
+  if (http_port == dashboard_port) {
+    std::cerr << "Control and dashboard HTTP ports must be different"
+              << std::endl;
+    return EXIT_FAILURE;
   }
 
   std::signal(SIGINT, HandleSignal);
@@ -595,9 +627,6 @@ int main(int argc, char* argv[]) {
   int dashboard_socket = -1;
   std::thread dashboard_thread;
   try {
-    const int dashboard_port =
-        http_port == kDefaultDashboardPort ? kDefaultDashboardPort + 1
-                                           : kDefaultDashboardPort;
     command_socket = StartServer(http_port);
     dashboard_socket = StartServer(dashboard_port);
     g_expected_host = "127.0.0.1:" + std::to_string(http_port);

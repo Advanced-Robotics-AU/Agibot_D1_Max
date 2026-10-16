@@ -84,8 +84,9 @@ Open <http://127.0.0.1:8766> for robot controls or
 concurrently; connect to the robot from the control page (UDP port `8082` by
 default) and use **Take control** before operating it. Direction controls send
 movement while held and stop when released. The web servers bind to localhost
-only; run them on the computer that is connected to the robot. Press `Ctrl+C`
-to stop both servers.
+only; run them on the computer that is connected to the robot. If the default
+ports are already in use, pass separate control and dashboard ports, for
+example `./build/web_control 18766 18767`. Press `Ctrl+C` to stop both servers.
 
 ## 📚 Documentation
 
